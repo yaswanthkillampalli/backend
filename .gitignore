@@ -1,2 +1,4 @@
 /.env
 /node_modules
+/test.js
+/create_password.js
