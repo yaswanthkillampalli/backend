@@ -3,6 +3,9 @@ const Course = require('../models/Course');
 const Student = require('../models/Student');
 const Mark = require('../models/Mark');
 const Enrollment = require('../models/Enrollment');
+const Attendance = require('../models/Attendance');
+const AcademicYear = require('../models/AcademicYear');
+const Calendar = require('../models/Calendar');
 const mongoose = require('mongoose');
 
 // helper functions
@@ -20,6 +23,67 @@ const getStudentIdFromUserObjectId = async (userObjectId) => {
     }
 };
 
+function getstudentAcademicYearField(currentSemester) {
+    switch (currentSemester) {
+        case 1:
+            return 'firstYear';
+        case 2:
+            return 'firstYear';
+        case 3:
+            return 'secondYear';
+        case 4:
+            return 'secondYear';
+        case 5:
+            return 'thirdYear';
+        case 6:
+            return 'thirdYear';
+        case 7:
+            return 'fourthYear';
+        case 8:
+            return 'fourthYear';
+        default:
+            throw new Error('Invalid semester number');
+    }
+}
+async function getSemesterStartAndEndDates(currentSemester) {
+  const semesterDataResult = await AcademicYear.findOne(
+    { 'semesters.semesterName': `Semester ${currentSemester}` },
+    {
+      $project: {
+        _id: 0, // Exclude the document's main _id
+        semesterDetails: { // Rename to something more descriptive if preferred
+          $filter: {
+            input: '$semesters',
+            as: 'sem',
+            cond: { $eq: ['$$sem.semesterName', `Semester ${currentSemester}`] }
+          }
+        }
+      }
+    }
+  );
+
+  let academicStartDate = null;
+  let academicEndDateFromDB = null; // Storing the direct value from DB
+  let endDateStatus = null;
+  let calculationEndDate = null; // The final date to use for calculations
+
+  if (semesterDataResult && semesterDataResult.semesterDetails.length > 0) {
+    const semester = semesterDataResult.semesterDetails[0];
+    academicStartDate = semester.academicStartDate;
+    academicEndDateFromDB = semester.academicEndDate;
+    endDateStatus = semester.endDateStatus;
+
+    // Determine the actual end date for calculations based on status and DB value
+    if (endDateStatus === 'Pending' || academicEndDateFromDB === null) {
+      calculationEndDate = new Date(); // Use current date for pending/null end dates
+    } else if (endDateStatus === 'Completed' && academicEndDateFromDB instanceof Date) {
+      calculationEndDate = academicEndDateFromDB; // Use the stored academicEndDate for completed semesters
+    }
+  }
+
+  // Return both the actual academic start date and the determined calculation end date
+  return { academicStartDate, calculationEndDate };
+}
 
 exports.getStudentDetails = async (req, res) => {
     try {
@@ -193,22 +257,63 @@ exports.getCurrentCGPA = async (req, res) => {
     }
 };
 
-exports.getAttendence = async (req, res) => {
+exports.getAttendenceDays = async (req, res) => {
     try {
         const userObjectId = req.user.id;
-        const studentObjectId = await getStudentIdFromUserObjectId(userObjectId);
+        const studentProfile = await getStudentIdFromUserObjectId(userObjectId);
 
-        if (!studentObjectId) {
+        if (!studentProfile || !studentProfile.associate_id) {
             return res.status(403).json({ message: 'Access denied: Not a valid student user or association missing.' });
         }
 
-        const studentDetails = await Student.findById(studentObjectId).lean();
-        const studendId = studentDetails.studentId;
+        const studentDetails = await Student.findById(studentProfile._id).lean();
+        const studentAssociateId = studentDetails.associate_id;
         const currentSemester = studentDetails.currentSemester;
-        const attendancePercentage = await Attendece
+        const studentAcademicYearNumber = studentDetails.academicYear; 
+        
+        const { academicStartDate, calculationEndDate } = await getSemesterStartAndEndDates(currentSemester);
+
+        if (!academicStartDate || !calculationEndDate) {
+            return res.status(404).json({ message: 'Semester start or end date could not be determined.' });
+        }
+
+        const attendanceRecordsCount = await Attendance.countDocuments({
+            associate_id: studentAssociateId,
+            attendance_date: {
+                $gte: academicStartDate,
+                $lte: calculationEndDate
+            },
+            attendance_mark: { $in: ['Present', 'Late'] }
+        });
+
+        const studentAcademicYearField = getstudentAcademicYearField(studentAcademicYearNumber); 
+
+        const totalWorkingDays = await Calendar.countDocuments({
+            date: {
+                $gte: academicStartDate,
+                $lte: calculationEndDate
+            },
+            [`type.${studentAcademicYearField}`]: 'Working Day'
+        });
+
+        let attendancePercentage = 0;
+        if (totalWorkingDays > 0) {
+            attendancePercentage = (attendanceRecordsCount / totalWorkingDays) * 100;
+        }
+
+        return res.status(200).json({
+            message: 'Attendance details retrieved successfully.',
+            studentAssociateId: studentAssociateId,
+            currentSemester: currentSemester,
+            academicStartDate: academicStartDate,
+            calculationEndDate: calculationEndDate,
+            attendanceRecordsCount: attendanceRecordsCount,
+            totalWorkingDays: totalWorkingDays,
+            attendancePercentage: attendancePercentage.toFixed(2)
+        });
 
     } catch (error) {
-        console.error("Error in getAttendence:", error);
+        console.error("Error in getAttendenceDays:", error);
         return res.status(500).json({ message: 'Server error. Could not retrieve attendance.' });
     }
-}
+};
