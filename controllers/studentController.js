@@ -11,7 +11,7 @@ const getStudentIdFromUserObjectId = async (userObjectId) => {
     try {
         const user = await User.findById(userObjectId);
         if (!user || user.role !== 'student' || user.associatedCollection !== 'students' || !user.associatedId) {
-            return null; // Not a student user or invalid association
+            return null; 
         }
         return user.associatedId;
     } catch (error) {
@@ -23,16 +23,13 @@ const getStudentIdFromUserObjectId = async (userObjectId) => {
 
 exports.getStudentDetails = async (req, res) => {
     try {
-        const userObjectId = req.user.id; // User's _id from JWT token
+        const userObjectId = req.user.id;
 
-        // Get the actual student _id from the user's associatedId
         const studentObjectId = await getStudentIdFromUserObjectId(userObjectId);
         if (!studentObjectId) {
             return res.status(403).json({ message: 'Access denied: Not a valid student user or association missing.' });
         }
 
-        // Find the student's details using their ObjectId
-        // .lean() makes the query faster by returning a plain JavaScript object instead of a Mongoose document
         const studentDetails = await Student.findById(studentObjectId).lean();
 
         if (!studentDetails) {
@@ -53,7 +50,7 @@ exports.getStudentDetails = async (req, res) => {
 
 exports.getTotalCredits = async (req, res) => {
     try {
-        const userId = req.user.id; // Based on your 'users' schema
+        const userId = req.user.id; 
         const user = await User.findById(userId);
         if (!userId) {
             return res.status(404).json({ message: 'User record not found.' });
@@ -90,35 +87,34 @@ exports.getTotalCredits = async (req, res) => {
 
 exports.coursesRegistered = async (req, res) => {
     try {
-        const userObjectId = req.user.id; // User's _id from JWT token
+        const userObjectId = req.user.id; 
 
         const studentObjectId = await getStudentIdFromUserObjectId(userObjectId);
         if (!studentObjectId) {
             return res.status(403).json({ message: 'Access denied: Not a valid student user or association missing.' });
         }
 
-        // Find enrollments for the student with 'Enrolled' status
         const registeredCourses = await Enrollment.aggregate([
             {
                 $match: {
                     studentId: studentObjectId,
-                    status: "Enrolled" // Filter by enrollment status
+                    status: "Enrolled"
                 }
             },
             {
                 $lookup: {
-                    from: 'courses',       // The collection to join with
-                    localField: 'courseId', // Field from the input documents (enrollments)
-                    foreignField: '_id',    // Field from the "from" documents (courses)
-                    as: 'courseDetails'     // Output array field
+                    from: 'courses',      
+                    localField: 'courseId',
+                    foreignField: '_id',   
+                    as: 'courseDetails'    
                 }
             },
             {
-                $unwind: '$courseDetails' // Deconstructs the courseDetails array
+                $unwind: '$courseDetails' 
             },
             {
                 $project: {
-                    _id: 0, // Exclude enrollment _id
+                    _id: 0, 
                     courseId: '$courseDetails._id',
                     courseCode: '$courseDetails.courseCode',
                     courseName: '$courseDetails.courseName',
@@ -151,89 +147,6 @@ exports.coursesRegistered = async (req, res) => {
     }
 };
 
-exports.coursesCompleted = async (req, res) => {
-    try {
-        const userObjectId = req.user.id; // User's _id from JWT token
-
-        const studentObjectId = await getStudentIdFromUserObjectId(userObjectId);
-        if (!studentObjectId) {
-            return res.status(403).json({ message: 'Access denied: Not a valid student user or association missing.' });
-        }
-
-        // Find marks for the student that indicate successful completion
-        const completedCourses = await Mark.aggregate([
-            {
-                $match: {
-                    studentId: studentObjectId,
-                    gradeStatus: "Final",   // Only consider finalized grades
-                    creditsGained: { $gt: 0 } // Ensure credits were actually gained (i.e., passed)
-                }
-            },
-            {
-                // Group by courseId to ensure unique completed courses,
-                // and pick the latest (or best) grade if a course was repeated
-                $sort: { submissionDate: -1 } // Sort to get latest submission if multiple entries for same course
-            },
-            {
-                $group: {
-                    _id: "$courseId", // Group by course ID to get unique courses
-                    latestMarkId: { $first: "$_id" },
-                    courseId: { $first: "$courseId" },
-                    gradePoint: { $first: "$gradePoint" },
-                    letterGrade: { $first: "$letterGrade" },
-                    creditsGained: { $first: "$creditsGained" },
-                    academicYear: { $first: "$academicYear" },
-                    semester: { $first: "$semester" },
-                    submissionDate: { $first: "$submissionDate" }
-                }
-            },
-            {
-                $lookup: {
-                    from: 'courses',        // The collection to join with
-                    localField: 'courseId', // Field from the input documents (grouped marks)
-                    foreignField: '_id',    // Field from the "from" documents (courses)
-                    as: 'courseDetails'     // Output array field
-                }
-            },
-            {
-                $unwind: '$courseDetails' 
-            },
-            {
-                $project: {
-                    _id: 0, 
-                    courseId: '$courseDetails._id',
-                    courseCode: '$courseDetails.courseCode',
-                    courseName: '$courseDetails.courseName',
-                    totalCredits: '$courseDetails.credits', 
-                    creditsGained: 1, 
-                    gradePoint: 1,
-                    letterGrade: 1,
-                    academicYear: 1,
-                    semester: 1,
-                    submissionDate: 1
-                }
-            }
-        ]);
-
-        if (completedCourses.length === 0) {
-            return res.status(200).json({
-                studentId: studentObjectId,
-                courses: [],
-                message: "No courses completed yet."
-            });
-        }
-
-        return res.status(200).json({
-            studentId: studentObjectId,
-            courses: completedCourses,
-            message: "Successfully retrieved completed courses."
-        });
-
-    } catch (error) {
-        console.error("Error fetching completed courses:", error);
-        return res.status(500).json({ message: 'Server error. Could not retrieve completed courses.' });
-    }
-};
 
 exports.getCurrentCGPA = async (req, res) => {
     try {
@@ -279,3 +192,23 @@ exports.getCurrentCGPA = async (req, res) => {
         return res.status(500).json({ message: 'Server error. Could not retrieve CGPA.' });
     }
 };
+
+exports.getAttendence = async (req, res) => {
+    try {
+        const userObjectId = req.user.id;
+        const studentObjectId = await getStudentIdFromUserObjectId(userObjectId);
+
+        if (!studentObjectId) {
+            return res.status(403).json({ message: 'Access denied: Not a valid student user or association missing.' });
+        }
+
+        const studentDetails = await Student.findById(studentObjectId).lean();
+        const studendId = studentDetails.studentId;
+        const currentSemester = studentDetails.currentSemester;
+        const attendancePercentage = await Attendece
+
+    } catch (error) {
+        console.error("Error in getAttendence:", error);
+        return res.status(500).json({ message: 'Server error. Could not retrieve attendance.' });
+    }
+}

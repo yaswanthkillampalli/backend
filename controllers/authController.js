@@ -3,7 +3,7 @@ const User = require('../models/User');
 const bycrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 
-exports.Login = async (req, res) => {
+exports.login = async (req, res) => {
   const { username, password } = req.body;
 
   try {
@@ -17,7 +17,7 @@ exports.Login = async (req, res) => {
       return res.status(401).json({ message: 'Password is Wrong' });
     }
 
-    const token = jwt.sign({ id: user._id, username: user.username , passwordVersion : Date.now() }, process.env.JSON_TOKEN, {
+    const token = jwt.sign({ id: user._id, username: user.username , passwordVersion : user.passwordVersion }, process.env.JSON_TOKEN, {
       expiresIn: '2d',
     });
 
@@ -27,3 +27,17 @@ exports.Login = async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 };
+
+exports.verifyToken = (req, res) => {
+  const user = req.user; // This comes from the auth middleware
+  if (!user) {
+    return res.status(401).json({ message: 'Unauthorized' });
+  }
+
+  res.json({
+    id: user.id,
+    username: user.username,
+    role: user.role,
+  });
+  
+}

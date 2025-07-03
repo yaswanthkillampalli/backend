@@ -11,7 +11,7 @@ module.exports = async (req, res, next) => { // Make it async to use await
 
   jwt.verify(token, process.env.JSON_TOKEN , async (err, decoded) => { // Use async callback
     if (err) {
-      return res.status(403).json({ message: "Invalid Token " + token + "  "+ jwt_token });
+      return res.status(403).json({ message: "Invalid Token"});
     }
 
     try {
