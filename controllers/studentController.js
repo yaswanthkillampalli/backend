@@ -403,3 +403,60 @@ exports.getNearestExamDetails = async (req, res) => {
         return res.status(500).json({ message: 'Server error. Could not retrieve nearest exam details.' });
     }
 };
+
+exports.getCalendarDetails = async (req,res) => {
+    try {
+        const userObjectId = req.user.id;
+        const studentObjectId = await getStudentIdFromUserObjectId(userObjectId);
+
+        if (!studentObjectId) {
+            return res.status(403).json({ message: 'Access denied: Not a valid student user or association missing.' });
+        }
+
+        const studentDetails = await Student.findById(studentObjectId).lean();
+        if (!studentDetails) {
+            return res.status(404).json({ message: 'Student details not found.' });
+        }
+
+        const currentSemester = studentDetails.currentSemester;
+        const studentAcademicYearField = getstudentAcademicYearField(currentSemester);
+        const { academicStartDate } = await getSemesterStartAndEndDates(currentSemester);
+        if (!studentAcademicYearField) {
+            return res.status(400).json({ message: 'Could not determine academic year for the current semester.' });
+        }
+        const queryresult = await Calendar.aggregate([
+            {
+            $match: {
+                date: {
+                $gte: academicStartDate
+                }
+            }
+            },
+            {
+            $addFields: {
+                selectedType: `$type.${studentAcademicYearField}`
+            }
+            },
+            {
+            $project: {
+                _id: 0,
+                dateObj: '$date',
+                id: '$id',
+                type: '$selectedType',
+                isHoliday: '$isHoliday',
+                holidayReason: '$holidayReason'
+            }
+            },
+            { $sort: { id: 1 } }
+        ],
+        { maxTimeMS: 60000, allowDiskUse: true }
+        );
+        return res.status(200).json({
+            message: 'Calendar details retrieved successfully.',
+            calendarDetails: queryresult
+        });
+    } catch (error) {
+        console.error("Error in getCalendarDetails:", error);
+        return res.status(500).json({ message: 'Server error. Could not retrieve calendar details.' });
+    }
+}
