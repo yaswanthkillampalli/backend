@@ -10,7 +10,7 @@ const calendarSchema = new Schema({
   date: {
     type: Date,
     required: true,
-    unique: true,
+    unique: true, // Keep unique if you want each date to be unique
     set: function(date) {
       if (date) {
         const d = new Date(date);
@@ -23,25 +23,25 @@ const calendarSchema = new Schema({
   type: {
     firstYear: {
       type: String,
-      enum: ['Working Day', 'Holiday', 'Weekend', 'Exam Day', 'Vacation'],
+      enum: ['Working', 'Holiday', 'Weekend', 'Exam Day', 'Vacation'],
       default: 'Working Day',
       required: true
     },
     secondYear: {
       type: String,
-      enum: ['Working Day', 'Holiday', 'Weekend', 'Exam Day', 'Vacation'],
+      enum: ['Working', 'Holiday', 'Weekend', 'Exam Day', 'Vacation'],
       default: 'Working Day',
       required: true
     },
     thirdYear: {
       type: String,
-      enum: ['Working Day', 'Holiday', 'Weekend', 'Exam Day', 'Vacation'],
+      enum: ['Working', 'Holiday', 'Weekend', 'Exam Day', 'Vacation'],
       default: 'Working Day',
       required: true
     },
     fourthYear: {
       type: String,
-      enum: ['Working Day', 'Holiday', 'Weekend', 'Exam Day', 'Vacation'],
+      enum: ['Working', 'Holiday', 'Weekend', 'Exam Day', 'Vacation'],
       default: 'Working Day',
       required: true
     }
@@ -59,8 +59,6 @@ const calendarSchema = new Schema({
 }, {
   timestamps: false
 });
-
-calendarSchema.index({ date: 1 });
 
 const Calendar = mongoose.model('Calendar', calendarSchema);
 
