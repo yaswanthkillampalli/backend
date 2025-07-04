@@ -45,8 +45,6 @@ function getstudentAcademicYearField(currentSemester) {
             throw new Error('Invalid semester number');
     }
 }
-// Ensure AcademicYear model is imported
-// const AcademicYear = require('./models/AcademicYear');
 
 async function getSemesterStartAndEndDates(currentSemester) {
   const result = await AcademicYear.aggregate([
@@ -323,5 +321,85 @@ exports.getAttendenceDays = async (req, res) => {
     } catch (error) {
         console.error("Error in getAttendenceDays:", error);
         return res.status(500).json({ message: 'Server error. Could not retrieve attendance.' });
+    }
+};
+
+exports.getNearestExamDetails = async (req, res) => {
+    try {
+        const userObjectId = req.user.id;
+        const studentObjectId = await getStudentIdFromUserObjectId(userObjectId);
+
+        if (!studentObjectId) {
+            return res.status(403).json({ message: 'Access denied: Not a valid student user or association missing.' });
+        }
+
+        const studentDetails = await Student.findById(studentObjectId).lean();
+        if (!studentDetails) {
+            return res.status(404).json({ message: 'Student details not found.' });
+        }
+
+        const currentSemester = studentDetails.currentSemester;
+        const studentAcademicYearField = getstudentAcademicYearField(currentSemester);
+
+        if (!studentAcademicYearField) {
+            return res.status(400).json({ message: 'Could not determine academic year for the current semester.' });
+        }
+
+        const examTypes = ['CT-1', 'CT-2', 'CT-3', 'CT-4', 'MID-1', 'MID-2', 'SEM-END-EXAMS'];
+
+        const nearestExam = await Calendar.aggregate([
+            {
+                $match: {
+                    isHoliday: false,
+                    "date": { $gte: new Date() } // Only documents on or after today's date
+                }
+            },
+            {
+                $project: {
+                    date: "$date",
+                    types: { $objectToArray: "$type" }
+                }
+            },
+            {
+                $unwind: "$types"
+            },
+            {
+                $match: {
+                    "types.v": { $in: examTypes },
+                    "types.k": studentAcademicYearField // Filter for the student's specific academic year
+                }
+            },
+            {
+                $project: {
+                    _id: 0,
+                    date: "$date",
+                    examType: "$types.v",
+                    academicYear: "$types.k"
+                }
+            },
+            {
+                $sort: {
+                    date: 1
+                }
+            },
+            {
+                $limit: 1
+            }
+        ]);
+
+        if (nearestExam.length > 0) {
+            return res.status(200).json({
+                message: 'Nearest upcoming exam found.',
+                nearestExam: nearestExam[0]
+            });
+        } else {
+            return res.status(404).json({
+                message: 'No upcoming exams found for your academic year.'
+            });
+        }
+
+    } catch (error) {
+        console.error("Error in getNearestExamDetails:", error);
+        return res.status(500).json({ message: 'Server error. Could not retrieve nearest exam details.' });
     }
 };
