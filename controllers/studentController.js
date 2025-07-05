@@ -96,24 +96,69 @@ async function getSemesterStartAndEndDates(currentSemester) {
   return { academicStartDate, calculationEndDate };
 }
 
-
 exports.getStudentDetails = async (req, res) => {
     try {
         const userObjectId = req.user.id;
 
-        const studentObjectId = await getStudentIdFromUserObjectId(userObjectId);
-        if (!studentObjectId) {
-            return res.status(403).json({ message: 'Access denied: Not a valid student user or association missing.' });
+        const user = await User.findById(userObjectId).lean();
+
+        if (!user) {
+            return res.status(404).json({ message: 'User not found.' });
         }
 
-        const studentDetails = await Student.findById(studentObjectId).lean();
+        if (user.role !== 'student') {
+             return res.status(403).json({ message: 'Access denied: User is not a student.' });
+        }
 
-        if (!studentDetails) {
+        const studentObjectId = user.associatedId;
+
+        if (!studentObjectId) {
+            return res.status(403).json({ message: 'Access denied: User is not associated with a student.' });
+        }
+
+        const studentResult = await Student.aggregate([
+            {
+                $match: {
+                    _id: studentObjectId
+                }
+            },
+            {
+                $project: {
+                    _id: 0,
+                    studentId: 1,
+                    firstName: 1,
+                    lastName: 1,
+                    dateOfBirth: 1,
+                    gender: 1,
+                    contact: 1,
+                    address: 1,
+                    parents: 1,
+                    enrollmentDate: 1,
+                    program: 1,
+                    branch: 1,
+                    branchcode: 1,
+                    currentSemester: 1,
+                    updatedAt: 1,
+                    imageurl: 1
+                }
+            }
+        ]);
+
+        const studentDetailsProjected = studentResult[0];
+
+        if (!studentDetailsProjected) {
             return res.status(404).json({ message: 'Student details not found for the associated ID.' });
         }
 
+        const finalCombinedDetails = {
+            username: user.username,
+            email: user.email,
+            role: user.role,
+            studentDetails: studentDetailsProjected
+        };
+
         return res.status(200).json({
-            studentDetails: studentDetails,
+            studentDetails: finalCombinedDetails,
             message: "Student details retrieved successfully."
         });
 
@@ -460,3 +505,4 @@ exports.getCalendarDetails = async (req,res) => {
         return res.status(500).json({ message: 'Server error. Could not retrieve calendar details.' });
     }
 }
+
