@@ -7,6 +7,7 @@ const Attendance = require('../models/Attendance');
 const AcademicYear = require('../models/AcademicYear');
 const Calendar = require('../models/Calendar');
 const mongoose = require('mongoose');
+const Upload = require('../models/Upload'); 
 
 // helper functions
 
@@ -506,3 +507,34 @@ exports.getCalendarDetails = async (req,res) => {
     }
 }
 
+exports.getCertificatesCount = async (req, res) => {
+    try {
+        const userObjectId = req.user.id;
+        const studentObjectId = await getStudentIdFromUserObjectId(userObjectId);
+        const studentDetails = await Student.findById(studentObjectId).lean();
+
+        if (!studentObjectId) {
+            return res.status(403).json({ message: 'Access denied: Not a valid student user or association missing.' });
+        }
+
+        const certificatesCountAgg = await Upload.aggregate([
+            { 
+                $match: { 
+                    type: 'Certificate', 
+                    associateId: studentDetails.studentId 
+                } 
+            },
+            { 
+                $count: 'total' 
+            }
+        ]);
+        return res.status(200).json({
+            studentId: studentObjectId,
+            totalCertificates: certificatesCountAgg[0].total,
+            message: 'Total certificates count retrieved successfully.'
+        });
+    } catch (error) {
+        console.error("Error in getCertificatesCOunt:", error);
+        return res.status(500).json({ message: 'Server error. Could not retrieve certificates count.' });
+    }
+}
