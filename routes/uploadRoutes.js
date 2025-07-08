@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const uploadController = require('../controllers/uploadController');
-const authenticate = require('../middleware/authMiddleWare'); // Assuming your authentication middleware is here
+const authenticate = require('../middleware/authMiddleWare');
 
 const storage = multer.memoryStorage();
 
