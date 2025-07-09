@@ -7,6 +7,7 @@ const authRoutes = require('./routes/authRoutes');
 const studentRoutes = require('./routes/studentRoutes');
 const uploadRoutes = require('./routes/uploadRoutes');
 const profileRoutes = require('./routes/profileRoutes');
+const passwordRoutes = require('./routes/passwordRoutes');
 const app = express();
 app.use(cors());
 app.use(express.json());
@@ -18,6 +19,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/students', studentRoutes);
 app.use('/api/uploads',uploadRoutes);
 app.use('/api/profile', profileRoutes);
+app.use('/api/password', passwordRoutes);
 
 app.use('/', (req, res) => {
   res.status(200).json({ message: 'Welcome to the Yash Database API' });

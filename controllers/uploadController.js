@@ -2,7 +2,7 @@ const cloudinary = require('../config/cloudinary');
 const Upload = require('../models/Upload');
 const Student = require('../models/Student');
 const User = require('../models/User');
-const getStudentIdFromUserObjectId = async (userObjectId) => {
+const getUserProfile = async (userObjectId) => {
     try {
         const user = await User.findById(userObjectId);
         if (!user || user.role !== 'student' || user.associatedCollection !== 'students' || !user.associatedId) {
@@ -17,7 +17,7 @@ const getStudentIdFromUserObjectId = async (userObjectId) => {
 exports.uploadDocument = async (req, res) => {
   try {
     const userObjectId = req.user.id;
-    const userProfile = await getStudentIdFromUserObjectId(userObjectId);
+    const userProfile = await getUserProfile(userObjectId);
 
     if (!userProfile || !userProfile.username) {
       return res.status(403).json({ message: 'Access denied: Not a valid student user or association missing.' });
@@ -69,3 +69,34 @@ exports.uploadDocument = async (req, res) => {
     res.status(500).json({ message: 'Failed to upload document.', error: error.message });
   }
 };
+
+exports.uploadProfilePicture = async (req, res) => {
+  try {
+    if(!req.file){
+      return res.status(400).json({ msg: 'No image file uploaded.' });
+    }
+    const userObjectId = req.user.id;
+    const userProfile = await getUserProfile(userObjectId);
+    const studentProfile = await Student.findById(userProfile.associatedId);
+    const userId = studentProfile.studentId;
+    const result = await cloudinary.uploader.upload(
+      `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`
+      , 
+      {
+      folder: `profile_pictures/${userId}`,
+      resource_type: 'image',
+      public_id: `${userId}_dp`,
+    });
+
+    studentProfile.imageurl = result.secure_url;
+    await studentProfile.save();
+
+    res.json({
+      msg: 'Profile picture uploaded successfully',
+      profileImageUrl: result.secure_url
+    });
+  } catch (error) {
+    console.error('Error during profile picture upload:', error);
+    res.status(500).json({ message: 'Failed to upload profile picture.', error: error.message });
+  }
+}
