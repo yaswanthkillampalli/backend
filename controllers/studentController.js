@@ -9,8 +9,6 @@ const Calendar = require('../models/Calendar');
 const mongoose = require('mongoose');
 const Upload = require('../models/Upload'); 
 
-// helper functions
-
 const getStudentIdFromUserObjectId = async (userObjectId) => {
     try {
         const user = await User.findById(userObjectId);
@@ -538,3 +536,139 @@ exports.getCertificatesCount = async (req, res) => {
         return res.status(500).json({ message: 'Server error. Could not retrieve certificates count.' });
     }
 }
+
+exports.updateStudentDetails = async (req, res, next) => {
+    try {
+        const userObjectId = req.user.id; 
+        const studentObjectId = await getStudentIdFromUserObjectId(userObjectId);
+        const studentDoc = await Student.findById(studentObjectId);
+        
+        if (!studentDoc) {
+            return res.status(404).json({ message: 'Student profile not found for the authenticated user.' });
+        }
+
+        const {
+            profileFirstName,
+            profileLastName,
+            profileDOB,
+            profileGender,
+            profileStreet,
+            profileVillage,
+            profileMandal,
+            profileCity,
+            profileState,
+            profileZipcode,
+            profileEmail,
+            profilePhone,
+            profileFatherRelation,
+            profileFatherFirstName,
+            profileFatherLastName,
+            profileFatherEmail,
+            profileFatherPhone,
+            profileMotherRelation,
+            profileMotherFirstName,
+            profileMotherLastName,
+            profileMotherEmail,
+            profileMotherPhone,
+        } = req.body;
+
+        const updateFields = {};
+
+        if (profileFirstName !== undefined) updateFields.firstName = profileFirstName;
+        if (profileLastName !== undefined) updateFields.lastName = profileLastName;
+        if (profileDOB !== undefined) {
+            updateFields.dateOfBirth = new Date(profileDOB);
+        }
+        if (profileGender !== undefined) updateFields.gender = profileGender;
+
+        if (profileEmail !== undefined) updateFields['contact.email'] = profileEmail;
+        if (profilePhone !== undefined) updateFields['contact.phone'] = profilePhone;
+
+        if (profileStreet !== undefined) updateFields['address.street'] = profileStreet;
+        if (profileVillage !== undefined) updateFields['address.village'] = profileVillage;
+        if (profileMandal !== undefined) updateFields['address.mandal'] = profileMandal;
+        if (profileCity !== undefined) updateFields['address.city'] = profileCity;
+        if (profileState !== undefined) updateFields['address.state'] = profileState;
+        if (profileZipcode !== undefined) updateFields['address.zipCode'] = profileZipcode;
+
+        const updatedParents = [];
+
+        const isFatherDataPresent = profileFatherRelation !== undefined || 
+                                    profileFatherFirstName !== undefined || 
+                                    profileFatherLastName !== undefined || 
+                                    profileFatherEmail !== undefined || 
+                                    profileFatherPhone !== undefined;
+
+        if (isFatherDataPresent) {
+            updatedParents.push({
+                relation: profileFatherRelation || 'Father',
+                firstName: profileFatherFirstName,
+                lastName: profileFatherLastName,
+                contact: {
+                    email: profileFatherEmail,
+                    phone: profileFatherPhone
+                }
+            });
+        } else {
+            const existingFather = studentDoc.parents.find(p => p.relation === 'Father');
+            if (existingFather) {
+                updatedParents.push(existingFather);
+            }
+        }
+        
+        const isMotherDataPresent = profileMotherRelation !== undefined || 
+                                    profileMotherFirstName !== undefined || 
+                                    profileMotherLastName !== undefined || 
+                                    profileMotherEmail !== undefined || 
+                                    profileMotherPhone !== undefined;
+
+        if (isMotherDataPresent) {
+            updatedParents.push({
+                relation: profileMotherRelation || 'Mother',
+                firstName: profileMotherFirstName,
+                lastName: profileMotherLastName,
+                contact: {
+                    email: profileMotherEmail,
+                    phone: profileMotherPhone
+                }
+            });
+        } else {
+            const existingMother = studentDoc.parents.find(p => p.relation === 'Mother');
+            if (existingMother) {
+                updatedParents.push(existingMother);
+            }
+        }
+        
+        updateFields.parents = updatedParents;
+
+        const result = await Student.findByIdAndUpdate(
+            studentDoc._id,
+            { $set: updateFields },
+            { new: true, runValidators: true }
+        ).select('-password'); 
+
+        if (!result) {
+            return res.status(404).json({ message: 'Student document not found after update attempt.' });
+        }
+
+        res.status(200).json({
+            message: 'Student profile updated successfully!',
+            profile: result
+        });
+
+    } catch (error) {
+        console.error("Error in updateStudentDetails:", error);
+        if (error.name === 'ValidationError') {
+            const errors = {};
+            for (let field in error.errors) {
+                errors[field] = error.errors[field].message;
+            }
+            return res.status(400).json({ message: 'Validation failed', errors });
+        }
+        if (error.code === 11000) {
+            const field = Object.keys(error.keyValue)[0];
+            return res.status(409).json({ message: `A student with this ${field} '${error.keyValue[field]}' already exists.`, field });
+        }
+        return res.status(500).json({ message: 'Server error. Could not update student details.' });
+    }
+};

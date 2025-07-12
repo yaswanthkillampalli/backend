@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { getStudentDetails, getTotalCredits,getCertificatesCount, coursesRegistered, getCalendarDetails, getNearestExamDetails, getCurrentCGPA, getAttendenceDays } = require('../controllers/studentController');
+const { getStudentDetails, getTotalCredits,getCertificatesCount ,coursesRegistered, getCalendarDetails, getNearestExamDetails, getCurrentCGPA, getAttendenceDays } = require('../controllers/studentController');
 const authenticate = require('../middleware/authMiddleWare');
 
 router.get('/details', authenticate, getStudentDetails);
