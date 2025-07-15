@@ -174,6 +174,7 @@ exports.getStudentName = async (req,res) => {
         const fullName = `${student.firstName} ${student.lastName}`; 
         return res.status(200).json({
             fullName: fullName,
+            image: student.imageurl,
             message: "Student name retrieved successfully."
         });
     } catch (error) {
