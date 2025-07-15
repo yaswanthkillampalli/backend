@@ -177,7 +177,6 @@ exports.getStudentName = async (req,res) => {
             message: "Student name retrieved successfully."
         });
     } catch (error) {
-        console.log(error);
         return res.status(500).json({ message: 'Server error. Could not retrieve student Name.' });
     }
 }
