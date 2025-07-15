@@ -167,6 +167,20 @@ exports.getStudentDetails = async (req, res) => {
     }
 };
 
+exports.getStudentName = async (req,res) => {
+    try {
+        const user = await User.findById(req.user.id);
+        const student = await Student.findById(user.associatedId);
+        const fullName = `${student.firstName} ${student.lastName}`; 
+        return res.status(200).json({
+            fullName: fullName,
+            message: "Student name retrieved successfully."
+        });
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({ message: 'Server error. Could not retrieve student Name.' });
+    }
+}
 
 exports.getTotalCredits = async (req, res) => {
     try {

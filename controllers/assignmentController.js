@@ -27,9 +27,8 @@ exports.getAssignmentsForStudent = async (req, res) => {
       return res.status(403).json({ message: 'Access denied: User is not a student.' });
     }
     const studentId = user.associatedId;
-
     const { status } = req.query;
-    const query = { studentId: new mongoose.Types.ObjectId(studentId) };
+    const query = { studentId };
     if (status) {
       if (status === 'Assigned') {
         query.status = 'Assigned';
@@ -39,7 +38,6 @@ exports.getAssignmentsForStudent = async (req, res) => {
         query.grade = { $ne: null };
       }
     }
-
     const assignments = await StudentAssignment.aggregate([
       { $match: query },
       {
@@ -83,7 +81,6 @@ exports.getAssignmentsForStudent = async (req, res) => {
         }
       }
     ]);
-
     return res.status(200).json({
       assignments,
       message: 'Assignments retrieved successfully.'
@@ -397,5 +394,50 @@ exports.getSubmissionHistory = async (req, res) => {
   } catch (error) {
     console.error('Error in getSubmissionHistory:', error);
     return res.status(500).json({ message: 'Server error. Could not retrieve submission history.' });
+  }
+};
+
+exports.getHomeAssignmentDueList = async (req, res) => {
+  try {
+    const userObjectId = req.user.id;
+
+    const user = await User.findById(userObjectId, 'associatedId associatedCollection').lean();
+    if (!user) {
+      return res.status(404).json({ message: 'User not found.' });
+    }
+    if (user.associatedCollection !== 'students') {
+      return res.status(403).json({ message: 'Access denied: User is not a student.' });
+    }
+    const studentId = user.associatedId;
+
+    const query = { studentId, status: 'Assigned' }; // Focus on due assignments
+
+    const assignments = await StudentAssignment.aggregate([
+      { $match: query },
+      {
+        $lookup: {
+          from: 'assignments',
+          localField: 'assignmentId',
+          foreignField: '_id',
+          as: 'assignment'
+        }
+      },
+      { $unwind: '$assignment' },
+      {
+        $project: {
+          id: "$assignment._id",
+          title: '$assignment.title',
+          dueDate: '$assignment.dueDate'
+        }
+      }
+    ]);
+
+    return res.status(200).json({
+      assignments,
+      message: 'Due assignments retrieved successfully.'
+    });
+  } catch (error) {
+    console.error('Error in getHomeAssignmentDueList:', error);
+    return res.status(500).json({ message: 'Server error. Could not retrieve due assignments.' });
   }
 };

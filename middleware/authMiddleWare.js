@@ -30,6 +30,7 @@ module.exports = async (req, res, next) => { // Make it async to use await
         id: user.id,
         username: user.username,
         role: user.role,
+        status : true
       };
       next();
     } catch (dbError) {

@@ -38,6 +38,7 @@ exports.verifyToken = (req, res) => {
     id: user.id,
     username: user.username,
     role: user.role,
+    status : user.status
   });
   
 }

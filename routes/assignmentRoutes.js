@@ -6,7 +6,8 @@ const {
   getAssignmentPreview,
   getFullAssignment,
   updateAssignmentSubmission,
-  getSubmissionHistory
+  getSubmissionHistory,
+  getHomeAssignmentDueList
 } = require('../controllers/assignmentController');
 const authenticate = require('../middleware/authMiddleWare');
 
@@ -29,10 +30,10 @@ const uploadMiddleware = multer({
   }
 });
 
-// Routes
 router.get('/assignments', authenticate, getAssignmentsForStudent);
 router.get('/assignments/:assignmentId/preview', authenticate, getAssignmentPreview);
 router.get('/assignments/:assignmentId', authenticate, getFullAssignment);
+router.get('/due',authenticate,getHomeAssignmentDueList);
 router.post('/assignments/:assignmentId/submit', authenticate, uploadMiddleware.array('files'), updateAssignmentSubmission);
 router.get('/assignments/:assignmentId/submissions', authenticate, getSubmissionHistory);
 
