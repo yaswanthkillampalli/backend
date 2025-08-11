@@ -23,6 +23,10 @@ const routeSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  stopPresent: {
+    type:Boolean,
+    default: false
+  },
   timestamp: {
     type: Date,
     default: Date.now

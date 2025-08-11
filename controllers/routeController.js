@@ -2,7 +2,7 @@ const Route = require('../models/Route');
 
 const addRouteData = async (req, res) => {
   try {
-    const { route_no, name, lng, lat, direction } = req.body;
+    const { route_no, name, lng, lat, direction, stopPresent  } = req.body;
 
     if (!route_no || !name || !lng || !lat || !direction) {
       return res.status(400).json({ message: 'Please provide all required fields.' });
@@ -13,7 +13,8 @@ const addRouteData = async (req, res) => {
       name,
       lng,
       lat,
-      direction
+      direction,
+      stopPresent,
     });
 
     const savedRoute = await newRoute.save();
