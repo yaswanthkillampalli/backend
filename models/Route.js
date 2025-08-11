@@ -1,14 +1,15 @@
 const mongoose = require('mongoose');
+const AutoIncrement = require('mongoose-sequence')(mongoose);
 
 const routeSchema = new mongoose.Schema({
   route_no: {
     type: Number,
-    required: true // Makes this field mandatory
+    required: true
   },
   name: {
     type: String,
     required: true,
-    trim: true // Removes whitespace from the beginning and end
+    trim: true
   },
   lng: {
     type: Number,
@@ -24,10 +25,11 @@ const routeSchema = new mongoose.Schema({
   },
   timestamp: {
     type: Date,
-    default: Date.now // Automatically sets the current date and time
+    default: Date.now
   }
 });
 
+routeSchema.plugin(AutoIncrement, { inc_field: 'routeId' });
 
 const Route = mongoose.model('Route', routeSchema);
 
