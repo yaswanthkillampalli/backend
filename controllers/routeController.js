@@ -2,9 +2,7 @@ const Route = require('../models/Route');
 
 const addRouteData = async (req, res) => {
   try {
-    console.log('Received route data:', req.body);
     const { route_no, name, lng, lat, direction, stopPresent  } = req.body;
-    console.log('Parsed route data:', { route_no, name, lng, lat, direction, stopPresent });
     if (!route_no || !name || !lng || !lat || !direction) {
       return res.status(400).json({ message: 'Please provide all required fields.' });
     }
